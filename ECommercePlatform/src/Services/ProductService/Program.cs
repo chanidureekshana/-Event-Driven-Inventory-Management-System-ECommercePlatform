@@ -1,37 +1,48 @@
+using Microsoft.EntityFrameworkCore;
+using ProductService.Data;
 using ProductService.Events;
 using ProductService.Events.Handlers;
 using ProductService.Kafka;
 using ProductService.Services;
-
+using  ProductService.Data.Repositories;
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Swagger and any other services here
+builder.Services.AddControllers();
+ 
+
+// Add services to the container.
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure dependency injection
-builder.Services.AddSingleton<IProductService, ProductService.Services.ProductService>(); // Assuming ProductService implements IProductService
 
-// Initialize Kafka producer and consumer
-var producer = new ProductProducer("localhost:9092", "inventory-updates-topic");
-var eventHandler = new InventoryUpdatedEventHandler(builder.Services.BuildServiceProvider().GetRequiredService<IProductService>());
-var consumer = new ProductConsumer("localhost:9092", "inventory-updates-topic", "product-consumer-group", eventHandler);
 
-// Publish an initial event for testing (remove this in production)
-await producer.PublishInventoryUpdateAsync(new InventoryUpdatedEvent
-{
-    ProductId = 1,
-    QuantityChange = -5,
-    EventType = "Sale"
-});
+builder.Services.AddDbContext<ProductServiceDbContext>(options=>
+options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Start consuming events in a background task
-var cts = new CancellationTokenSource();
-Task.Run(() => consumer.StartConsuming(cts.Token));
+builder.Services.AddScoped<IProductService, ProductService.Services.ProductService>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
+// builder.Services.AddScoped<IProductService, ProductService.Services.ProductService>(); 
+
+// var producer = new ProductProducer("localhost:9092", "inventory-updates-topic");
+// var eventHandler = new InventoryUpdatedEventHandler(IProductService);
+// var consumer = new ProductConsumer("localhost:9092", "inventory-updates-topic", "product-consumer-group", eventHandler);
+
+// Publish an event
+// await producer.PublishInventoryUpdateAsync(new InventoryUpdatedEvent
+// {
+//     ProductId = 1,
+//     QuantityChange = -5,
+//     EventType = "Sale"
+// });
+
+// // Start consuming in a background task
+// var cts = new CancellationTokenSource();
+// Task.Run(() => consumer.StartConsuming(cts.Token));
 var app = builder.Build();
 
-// Configure middleware for development
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -40,15 +51,29 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Add additional endpoints or controllers as needed
-app.MapGet("/inventory-update", () => "Inventory service is running.");
+var summaries = new[]
+{
+    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+};
+app.MapControllers(); 
+app.MapGet("/weatherforecast", () =>
+{
+    var forecast =  Enumerable.Range(1, 5).Select(index =>
+        new WeatherForecast
+        (
+            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+            Random.Shared.Next(-20, 55),
+            summaries[Random.Shared.Next(summaries.Length)]
+        ))
+        .ToArray();
+    return forecast;
+})
+.WithName("GetWeatherForecast")
+.WithOpenApi();
 
 app.Run();
 
-// Define any supporting classes as needed
-public record InventoryUpdatedEvent
+record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
-    public int ProductId { get; init; }
-    public int QuantityChange { get; init; }
-    public string EventType { get; init; } = string.Empty;
+    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }

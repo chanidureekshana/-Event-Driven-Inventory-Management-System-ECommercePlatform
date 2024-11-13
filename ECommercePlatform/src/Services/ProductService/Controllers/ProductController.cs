@@ -42,7 +42,8 @@ namespace ProductService.Controllers
                 return BadRequest("Product is Empty");
             }
             await _productService.AddProductAsync(product);
-            return CreatedAtAction(nameof(GetProductById) , new { id = product.ProductId});
+            // return CreatedAtAction(nameof(GetProductById) , new { id = product.ProductId});
+            return Ok(product);
         }
         [HttpPut("{id}")]
         public async Task<ActionResult>UpdateProduct(int id , [FromBody] ProductModel product)

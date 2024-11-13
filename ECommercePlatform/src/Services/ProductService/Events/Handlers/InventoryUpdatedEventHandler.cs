@@ -37,9 +37,5 @@ namespace ProductService.Events.Handlers
             }
         }
 
-        internal void HandleAsync(global::InventoryUpdatedEvent? inventoryEvent)
-        {
-            throw new NotImplementedException();
-        }
     }
 }
